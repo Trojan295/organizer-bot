@@ -11,4 +11,8 @@ repos:
       - id: golangci-lint
       - id: go-critic
       - id: go-mod-tidy
-  
+  - repo: git://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.52.0
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_docs

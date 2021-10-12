@@ -2,21 +2,12 @@ package todo
 
 import "errors"
 
-type Entry struct {
-	Text string
-	Done bool
-}
-
-type List struct {
-	Entries []Entry
-}
-
 type InMemoryListRepository struct {
 	Lists map[string]List
 }
 
-func (r *InMemoryListRepository) Get(ID string) (*List, error) {
-	list, ok := r.Lists[ID]
+func (r *InMemoryListRepository) Get(id string) (*List, error) {
+	list, ok := r.Lists[id]
 	if !ok {
 		return &List{}, nil
 	}
@@ -24,7 +15,7 @@ func (r *InMemoryListRepository) Get(ID string) (*List, error) {
 	return &list, nil
 }
 
-func (r *InMemoryListRepository) Save(ID string, list *List) error {
+func (r *InMemoryListRepository) Save(id string, list *List) error {
 	if list == nil {
 		return errors.New("list must not be nil")
 	}
@@ -33,6 +24,6 @@ func (r *InMemoryListRepository) Save(ID string, list *List) error {
 		r.Lists = make(map[string]List)
 	}
 
-	r.Lists[ID] = *list
+	r.Lists[id] = *list
 	return nil
 }

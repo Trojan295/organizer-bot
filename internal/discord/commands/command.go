@@ -1,37 +1,69 @@
 package commands
 
 import (
+	"fmt"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
 )
 
-type GetApplicationCommandInput struct {
-	ChannelID *string
+const (
+	unknownCommandMessage     = "Unknown command."
+	serverNotAvailableMessage = "is not available right now... Try again in a moment."
+)
+
+type SlashModule interface {
+	GetApplicationCommands() []*discordgo.ApplicationCommand
+	GetCommandCreateHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
-func GetApplicationCommands(input *GetApplicationCommandInput) []*discordgo.ApplicationCommand {
-	return NewTodoApplicationCommands(&NewTodoApplicationCommandInput{})
+type ModuleAggregator struct {
+	modules []SlashModule
 }
 
-func GetCommandHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	handler := make(map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate))
+func NewModuleAggregator() *ModuleAggregator {
+	return &ModuleAggregator{}
+}
 
-	for k, v := range TodoCommandHandlers() {
-		handler[k] = v
+func (a *ModuleAggregator) AddModule(module SlashModule) {
+	a.modules = append(a.modules, module)
+}
+
+func serverErrorCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: serverNotAvailableMessage,
+		},
+	})
+
+	if err != nil {
+		logrus.WithError(err).Errorf("cannot respond")
 	}
+}
 
-	return handler
+func clientErrorCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate, msg string) {
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("❌ %s", msg),
+		},
+	})
+
+	if err != nil {
+		logrus.WithError(err).Errorf("cannot respond")
+	}
 }
 
 func unknownCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Unknown command",
+			Content: unknownCommandMessage,
 		},
 	})
 
 	if err != nil {
-		logrus.WithError(err).Errorf("cannot respond to todo show")
+		logrus.WithError(err).Errorf("cannot respond")
 	}
 }

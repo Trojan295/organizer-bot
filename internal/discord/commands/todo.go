@@ -9,14 +9,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	repo todo.InMemoryListRepository
-)
-
-type NewTodoApplicationCommandInput struct {
+type TodoRepository interface {
+	Get(ID string) (*todo.List, error)
+	Save(ID string, l *todo.List) error
 }
 
-func NewTodoApplicationCommands(input *NewTodoApplicationCommandInput) []*discordgo.ApplicationCommand {
+type TodoModule struct {
+	todoRepository TodoRepository
+}
+
+func NewTodoModule(repo TodoRepository) *TodoModule {
+	return &TodoModule{
+		todoRepository: repo,
+	}
+}
+
+func (m *TodoModule) GetApplicationCommands() []*discordgo.ApplicationCommand {
 	return []*discordgo.ApplicationCommand{
 		{
 			Name:        "todo",
@@ -58,87 +66,129 @@ func NewTodoApplicationCommands(input *NewTodoApplicationCommandInput) []*discor
 	}
 }
 
-func TodoCommandHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (m *TodoModule) GetCommandCreateHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"todo": todoHandler,
+		"todo": m.todoHandler,
 	}
 }
 
-func todoHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (m *TodoModule) todoHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if len(i.ApplicationCommandData().Options) == 0 {
-		showTodoHandler(s, i)
+		m.showTodoHandler(s, i)
 		return
 	}
 
 	switch i.ApplicationCommandData().Options[0].Name {
 	case "add":
-		addTodoHandler(s, i, i.ApplicationCommandData().Options[0])
+		m.addTodoHandler(s, i, i.ApplicationCommandData().Options[0])
 	case "show":
-		showTodoHandler(s, i)
+		m.showTodoHandler(s, i)
+	case "done":
+		m.doneTodoHandler(s, i, i.ApplicationCommandData().Options[0])
 
 	default:
 		unknownCommandHandler(s, i)
 	}
 }
 
-func showTodoHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	list, _ := repo.Get(i.ChannelID)
+func (m *TodoModule) showTodoHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	channelID := i.ChannelID
+	logrus := logrus.WithField("channelID", channelID)
 
-	builder := strings.Builder{}
-	builder.WriteString("This is TODO:\n")
-
-	for _, entry := range list.Entries {
-		if entry.Done {
-			builder.WriteString(fmt.Sprintf("✓ %s\n", entry.Text))
-		} else {
-			builder.WriteString(fmt.Sprintf("⃞ %s\n", entry.Text))
-		}
+	list, err := m.todoRepository.Get(channelID)
+	if err != nil {
+		logrus.WithError(err).Errorf("cannot get Todo list")
+		serverErrorCommandHandler(s, i)
+		return
 	}
 
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	builder := strings.Builder{}
+	builder.WriteString("📰 **Tasks:**\n```")
+
+	for i, entry := range list.Entries {
+		builder.WriteString(fmt.Sprintf("%d. %s\n", i+1, entry.Text))
+	}
+
+	builder.WriteString("```")
+
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: builder.String(),
 		},
 	})
-
 	if err != nil {
 		logrus.WithError(err).Errorf("cannot respond to todo show")
 	}
 }
 
-func addTodoHandler(s *discordgo.Session, i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) {
+func (m *TodoModule) addTodoHandler(s *discordgo.Session, i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) {
+	channelID := i.ChannelID
 	message := opt.Options[0].StringValue()
 
-	list, _ := repo.Get(i.ChannelID)
-	list.Entries = append(list.Entries, todo.Entry{Text: message, Done: false})
-	repo.Save(i.ChannelID, list)
+	logrus := logrus.WithField("channelID", channelID)
 
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	list, err := m.todoRepository.Get(i.ChannelID)
+	if err != nil {
+		logrus.WithError(err).Error("cannot get list")
+		serverErrorCommandHandler(s, i)
+		return
+	}
+
+	list.Entries = append(list.Entries, todo.Entry{Text: message})
+	if err := m.todoRepository.Save(i.ChannelID, list); err != nil {
+		logrus.WithError(err).Error("cannot save list")
+		serverErrorCommandHandler(s, i)
+		return
+	}
+
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "🚀 Task was added!",
+			Content: fmt.Sprintf("🚀 **Added task!**\n%s", message),
 		},
 	})
-
-	for _, cmd := range GetApplicationCommands(&GetApplicationCommandInput{
-		ChannelID: &i.ChannelID,
-	}) {
-		logrus.Println(cmd.Options[2].Options[0].Choices)
-		if _, err := s.ApplicationCommandCreate(s.State.User.ID, i.GuildID, cmd); err != nil {
-			logrus.WithError(err).WithField("name", cmd.Name).Errorf("while adding application commands")
-		}
-	}
 
 	if err != nil {
 		logrus.WithError(err).Errorf("cannot respond to todo add")
 	}
 }
 
-func markTodoHandler(s *discordgo.Session, i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) {
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{})
+func (m *TodoModule) doneTodoHandler(s *discordgo.Session, i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) {
+	channelID := i.ChannelID
+	itemPos := int(opt.Options[0].IntValue() - 1)
 
+	logrus := logrus.WithField("channelID", channelID)
+
+	list, err := m.todoRepository.Get(i.ChannelID)
 	if err != nil {
-		logrus.WithError(err).Errorf("cannot respond to todo add")
+		logrus.WithError(err).Error("cannot get list")
+		serverErrorCommandHandler(s, i)
+		return
+	}
+
+	if itemPos < 0 || itemPos > len(list.Entries)-1 {
+		clientErrorCommandHandler(s, i, "Wrong task number!")
+		return
+	}
+
+	task := list.Entries[itemPos]
+
+	list.Entries = append(list.Entries[0:itemPos], list.Entries[itemPos+1:]...)
+	err = m.todoRepository.Save(i.ChannelID, list)
+	if err != nil {
+		logrus.WithError(err).Error("cannot save list")
+		serverErrorCommandHandler(s, i)
+		return
+	}
+
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("✓ **Task done!**\n%s", task.Text),
+		},
+	})
+	if err != nil {
+		logrus.WithError(err).Errorf("cannot respond to todo done")
 	}
 }
