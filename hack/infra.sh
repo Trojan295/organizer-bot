@@ -33,6 +33,11 @@ terraform::apply() {
   terraform -chdir="${INFRA_DIR}" apply -auto-approve -var-file="${config}"
 }
 
+terraform::output() {
+  local -r env="$1"
+  terraform -chdir="${INFRA_DIR}" output -json
+}
+
 main() {
   local -r action="${1:-}"
   local -r env="${2:-devel}"
@@ -42,14 +47,15 @@ main() {
       terraform::init "${env}"
       terraform::plan "${env}"
       ;;
+
     apply)
       terraform::init "${env}"
       terraform::apply "${env}"
-
       ;;
 
-    destroy)
-
+    output)
+      terraform::init "${env}"
+      terraform::output "${env}" > tf_output.json
       ;;
 
     *)

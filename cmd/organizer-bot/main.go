@@ -8,7 +8,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/Trojan295/organizer-bot/internal"
@@ -22,11 +21,15 @@ type TodoConfig struct {
 	DynamoDBTableName string `required:"true"`
 }
 
+type TestingConfig struct {
+	GuildID string
+}
+
 type Config struct {
 	DiscordToken string `required:"true"`
-	GuildID      string
 
-	TodoConfig TodoConfig `required:"true"`
+	TestingConfig TestingConfig
+	TodoConfig    TodoConfig `required:"true"`
 }
 
 const (
@@ -38,38 +41,9 @@ var (
 	cfg Config
 )
 
-func setupDiscordHandlers(module commands.SlashModule) {
-	ds.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		log.Println("Bot is running")
-	})
-
-	handlers := module.GetCommandCreateHandlers()
-
-	ds.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
-			h(s, i)
-		}
-	})
-}
-
-func setupApplicationCommands(module commands.SlashModule) ([]*discordgo.ApplicationCommand, error) {
-	log.WithField("GuildID", cfg.GuildID).Printf("setup application commands")
-
-	registeredCommands := make([]*discordgo.ApplicationCommand, 0)
-
-	for _, cmd := range module.GetApplicationCommands() {
-		cmd, err := ds.ApplicationCommandCreate(ds.State.User.ID, cfg.GuildID, cmd)
-		if err != nil {
-			return nil, fmt.Errorf("while adding %s application command: %v", cmd.Name, err)
-		}
-
-		registeredCommands = append(registeredCommands, cmd)
-	}
-
-	return registeredCommands, nil
-}
-
 func getSlashModule() (commands.SlashModule, error) {
+	module := commands.NewModuleAggregator()
+
 	sess, err := session.NewSession()
 	if err != nil {
 		return nil, errors.Wrap(err, "while creating AWS session")
@@ -78,7 +52,9 @@ func getSlashModule() (commands.SlashModule, error) {
 	todoRepo := todo.NewDynamoDBRepostory(sess, cfg.TodoConfig.DynamoDBTableName)
 
 	todoModule := commands.NewTodoModule(todoRepo)
-	return todoModule, err
+	module.AddModule(todoModule)
+
+	return module, nil
 }
 
 func main() {
@@ -89,38 +65,31 @@ func main() {
 	}
 
 	if err := envconfig.Process(envconfigPrefix, &cfg); err != nil {
-		log.Fatal(fmt.Sprintf("while loading envconfig: %v", err))
+		log.WithError(err).Fatal("failed to load envconfig")
 	}
 
 	ds, err = discordgo.New("Bot " + cfg.DiscordToken)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("while creating Discord client: %v", err))
+		log.WithError(err).Fatal("failed to create Discord client")
 	}
 
 	slashMod, err := getSlashModule()
 	if err != nil {
-		log.Fatal(fmt.Sprintf("while getting SlashModule: %v", err))
+		log.WithError(err).Fatal("failed to get SlashModule")
 	}
 
-	setupDiscordHandlers(slashMod)
+	commands.SetupDiscordHandlers(ds, slashMod)
 
 	if err := ds.Open(); err != nil {
-		log.Fatal(fmt.Sprintf("while opening connection to Discord: %v", err))
+		log.WithError(err).Fatal("failed to open connection to Discord")
 	}
 
-	registeredAppCmds, err := setupApplicationCommands(slashMod)
+	cleanupAppCmds, err := commands.SetupApplicationCommands(ds, slashMod, cfg.TestingConfig.GuildID)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("while setup application commands: %v", err))
+		log.WithError(err).Fatal("failed to setup ApplicationCommands")
 	}
 
-	defer func() {
-		for _, cmd := range registeredAppCmds {
-			if err := ds.ApplicationCommandDelete(cmd.ApplicationID, cfg.GuildID, cmd.ID); err != nil {
-				logrus.WithError(err).Error("failed to delete ApplicationCommand")
-			}
-		}
-	}()
-
+	defer cleanupAppCmds()
 	defer ds.Close()
 
 	sc := make(chan os.Signal, 1)

@@ -7,6 +7,9 @@ jobs:
   apply-infra:
     name: Apply infra
     runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -20,3 +23,55 @@ jobs:
       - name: Terraform apply
         run: |
           ./hack/infra.sh apply prod
+      - name: Terraform output
+        run: |
+          ./hack/infra.sh output prod
+      - uses: actions/upload-artifact@v2
+        with:
+          name: tf-output
+          path: ./tf_output.json
+          retention-days: 1
+  build-docker:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    env:
+      SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+      SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build image
+        run: |
+          ./hack/docker.sh build
+      - name: Push image
+        run: |
+          ./hack/docker.sh push
+
+  deploy-bot :
+    name: Deploy bot
+    runs-on: ubuntu-latest
+    needs: [apply-infra, build-docker]
+    env:
+      SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+      SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+      SCW_DEFAULT_ORGANIZATION_ID: "84d05136-a8ba-43e7-8c6b-abac62b87873"
+      SCW_K8S_CLUSTER_ID: "c03db9bf-3809-4fff-bcda-f513dc5042b6"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install scw
+        run: |
+          sudo curl -o /usr/local/bin/scw -L "https://github.com/scaleway/scaleway-cli/releases/download/v2.3.1/scw-2.3.1-linux-x86_64"
+          sudo chmod +x /usr/local/bin/scw
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          scw k8s kubeconfig get "${SCW_K8S_CLUSTER_ID}" > "$HOME/.kube/config"
+          chmod 400 $HOME/.kube/config
+      - name: Get Terraform output
+        uses: actions/download-artifact@v2
+        with:
+          name: tf-output
+      - name: Deploy Helm release
+        run: |
+          ./hack/deploy.sh
