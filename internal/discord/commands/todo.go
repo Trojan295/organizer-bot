@@ -109,15 +109,7 @@ func (m *TodoModule) showTodoHandler(s *discordgo.Session, i *discordgo.Interact
 		builder.WriteString(fmt.Sprintf("%d. %s\n", i+1, entry.Text))
 	}
 
-	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: builder.String(),
-		},
-	})
-	if err != nil {
-		logrus.WithError(err).Errorf("cannot respond to todo show")
-	}
+	stringResponseHandler(s, i, builder.String())
 }
 
 func (m *TodoModule) addTodoHandler(s *discordgo.Session, i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) {
@@ -140,16 +132,7 @@ func (m *TodoModule) addTodoHandler(s *discordgo.Session, i *discordgo.Interacti
 		return
 	}
 
-	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("🚀 **Task added!**\n%s", message),
-		},
-	})
-
-	if err != nil {
-		logrus.WithError(err).Errorf("cannot respond to todo add")
-	}
+	stringResponseHandler(s, i, fmt.Sprintf("🚀 **Task added!**\n%s", message))
 }
 
 func (m *TodoModule) doneTodoHandler(s *discordgo.Session, i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) {
@@ -180,13 +163,5 @@ func (m *TodoModule) doneTodoHandler(s *discordgo.Session, i *discordgo.Interact
 		return
 	}
 
-	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("✓ **Task done!**\n%s", task.Text),
-		},
-	})
-	if err != nil {
-		logrus.WithError(err).Errorf("cannot respond to todo done")
-	}
+	stringResponseHandler(s, i, fmt.Sprintf("✓ **Task done!**\n%s", task.Text))
 }

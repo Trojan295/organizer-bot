@@ -50,6 +50,8 @@ spec:
               value: "{{ .Values.bot.aws.region }}"
             - name: APP_TODO_DYNAMODBTABLENAME
               value: "{{ .Values.bot.todo.dynamoDBTableName }}"
+            - name: APP_SCHEDULE_DYNAMODBTABLENAME
+              value: "{{ .Values.bot.schedule.dynamoDBTableName }}"
           ports:
             - name: http
               containerPort: 80

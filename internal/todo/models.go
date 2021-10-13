@@ -2,7 +2,7 @@ package todo
 
 type Entry struct {
 	Text string
-	// TODO add addedAt
+	// TODO add updatedAt
 }
 
 type List struct {

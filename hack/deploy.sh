@@ -8,6 +8,10 @@ terraform::output::todoDynamoDBTableName() {
   cat "${TF_OUTPUT_FILE}" | jq -r '.todo_list_dynamodb_table_name.value'
 }
 
+terraform::output::scheduleDynamoDBTableName() {
+  cat "${TF_OUTPUT_FILE}" | jq -r '.schedules_dynamodb_table_name.value'
+}
+
 helm::upgrade() {
   local helm_flags="$1"
 
@@ -22,9 +26,8 @@ helm::upgrade() {
 }
 
 main() {
-  local -r todoDynamoDBTableName=$(terraform::output::todoDynamoDBTableName)
-
-  local helm_flags="--set bot.todo.dynamoDBTableName=${todoDynamoDBTableName}"
+  local helm_flags="--set bot.todo.dynamoDBTableName=$(terraform::output::todoDynamoDBTableName)"
+  helm_flags="${helm_flags} --set bot.schedule.dynamoDBTableName=$(terraform::output::scheduleDynamoDBTableName)"
 
   helm::upgrade "${helm_flags}"
 }

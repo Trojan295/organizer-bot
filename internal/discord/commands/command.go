@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -25,16 +26,30 @@ func NewModuleAggregator() *ModuleAggregator {
 	return &ModuleAggregator{}
 }
 
-func (a *ModuleAggregator) AddModule(module SlashModule) {
-	a.modules = append(a.modules, module)
+func (a *ModuleAggregator) AddModules(modules ...SlashModule) {
+	a.modules = append(a.modules, modules...)
 }
 
 func (a *ModuleAggregator) GetApplicationCommands() []*discordgo.ApplicationCommand {
-	return a.modules[0].GetApplicationCommands()
+	cmds := make([]*discordgo.ApplicationCommand, 0)
+
+	for _, m := range a.modules {
+		cmds = append(cmds, m.GetApplicationCommands()...)
+	}
+
+	return cmds
 }
 
 func (a *ModuleAggregator) GetCommandCreateHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	return a.modules[0].GetCommandCreateHandlers()
+	handlers := make(map[string]func(*discordgo.Session, *discordgo.InteractionCreate))
+
+	for _, m := range a.modules {
+		for k, v := range m.GetCommandCreateHandlers() {
+			handlers[k] = v
+		}
+	}
+
+	return handlers
 }
 
 func SetupApplicationCommands(s *discordgo.Session, module SlashModule, guildID string) (func(), error) {
@@ -113,5 +128,17 @@ func unknownCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	if err != nil {
 		log.WithError(err).Errorf("cannot respond")
+	}
+}
+
+func stringResponseHandler(s *discordgo.Session, i *discordgo.InteractionCreate, msg string) {
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: msg,
+		},
+	})
+	if err != nil {
+		logrus.WithError(err).Errorf("cannot respond")
 	}
 }
