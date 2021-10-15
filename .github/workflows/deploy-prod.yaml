@@ -17,6 +17,7 @@ jobs:
         uses: hashicorp/setup-terraform@v1
         with:
           terraform_version: 1.0.8
+          terraform_wrapper: false
       - name: Terraform plan
         run: |
           ./hack/infra.sh plan prod
@@ -31,6 +32,7 @@ jobs:
           name: tf-output
           path: ./tf_output.json
           retention-days: 1
+
   build-docker:
     name: Build Docker image
     runs-on: ubuntu-latest

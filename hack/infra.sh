@@ -35,7 +35,15 @@ terraform::apply() {
 
 terraform::output() {
   local -r env="$1"
-  terraform -chdir="${INFRA_DIR}" output -json
+  local -r output_file="${2:-}"
+
+  local -r cmd="terraform -chdir="${INFRA_DIR}" output -json"
+
+  if [ -n "${output_file}" ]; then
+    ${cmd} | tee "${output_file}"
+  else
+    ${cmd}
+  fi
 }
 
 main() {
@@ -55,7 +63,7 @@ main() {
 
     output)
       terraform::init "${env}"
-      terraform::output "${env}" > tf_output.json
+      terraform::output "${env}" tf_output.json
       ;;
 
     *)
