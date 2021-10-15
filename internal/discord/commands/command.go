@@ -41,12 +41,12 @@ func SetupApplicationCommands(s *discordgo.Session, module SlashModule, guildID 
 	registeredCommands := make([]*discordgo.ApplicationCommand, 0)
 
 	for _, cmd := range module.GetApplicationCommands() {
-		cmd, err := s.ApplicationCommandCreate(s.State.User.ID, guildID, cmd)
+		ccmd, err := s.ApplicationCommandCreate(s.State.User.ID, guildID, cmd)
 		if err != nil {
 			return nil, fmt.Errorf("while adding %s application command: %v", cmd.Name, err)
 		}
 
-		registeredCommands = append(registeredCommands, cmd)
+		registeredCommands = append(registeredCommands, ccmd)
 	}
 
 	if guildID != "" {

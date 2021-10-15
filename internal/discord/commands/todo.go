@@ -55,7 +55,7 @@ func (m *TodoModule) GetApplicationCommands() []*discordgo.ApplicationCommand {
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Type:        discordgo.ApplicationCommandOptionInteger,
-							Name:        "taskID",
+							Name:        "task_id",
 							Description: "Task to mark as done",
 							Required:    true,
 						},
