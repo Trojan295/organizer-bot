@@ -143,7 +143,7 @@ func (m *TodoModule) addTodoHandler(s *discordgo.Session, i *discordgo.Interacti
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("🚀 **Added task!**\n%s", message),
+			Content: fmt.Sprintf("🚀 **Task added!**\n%s", message),
 		},
 	})
 
