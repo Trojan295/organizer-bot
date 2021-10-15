@@ -28,8 +28,8 @@ type TestingConfig struct {
 type Config struct {
 	DiscordToken string `required:"true"`
 
-	TestingConfig TestingConfig
-	TodoConfig    TodoConfig `required:"true"`
+	Testing TestingConfig
+	Todo    TodoConfig `required:"true"`
 }
 
 const (
@@ -49,7 +49,7 @@ func getSlashModule() (commands.SlashModule, error) {
 		return nil, errors.Wrap(err, "while creating AWS session")
 	}
 
-	todoRepo := todo.NewDynamoDBRepostory(sess, cfg.TodoConfig.DynamoDBTableName)
+	todoRepo := todo.NewDynamoDBRepostory(sess, cfg.Todo.DynamoDBTableName)
 
 	todoModule := commands.NewTodoModule(todoRepo)
 	module.AddModule(todoModule)
@@ -84,7 +84,7 @@ func main() {
 		log.WithError(err).Fatal("failed to open connection to Discord")
 	}
 
-	cleanupAppCmds, err := commands.SetupApplicationCommands(ds, slashMod, cfg.TestingConfig.GuildID)
+	cleanupAppCmds, err := commands.SetupApplicationCommands(ds, slashMod, cfg.Testing.GuildID)
 	if err != nil {
 		log.WithError(err).Fatal("failed to setup ApplicationCommands")
 	}

@@ -48,7 +48,7 @@ spec:
                   key: "awsSecretAccessKey"
             - name: AWS_REGION
               value: "{{ .Values.bot.aws.region }}"
-            - name: APP_TODOCONFIG_DYNAMODBTABLENAME
+            - name: APP_TODO_DYNAMODBTABLENAME
               value: "{{ .Values.bot.todo.dynamoDBTableName }}"
           ports:
             - name: http
