@@ -103,13 +103,11 @@ func (m *TodoModule) showTodoHandler(s *discordgo.Session, i *discordgo.Interact
 	}
 
 	builder := strings.Builder{}
-	builder.WriteString("📰 **Tasks:**\n```")
+	builder.WriteString("📰 **Tasks:**\n")
 
 	for i, entry := range list.Entries {
 		builder.WriteString(fmt.Sprintf("%d. %s\n", i+1, entry.Text))
 	}
-
-	builder.WriteString("```")
 
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
