@@ -4,35 +4,6 @@ on:
       - "main"
 
 jobs:
-  apply-infra:
-    name: Apply infra
-    runs-on: ubuntu-latest
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY}}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@v1
-        with:
-          terraform_version: 1.0.8
-          terraform_wrapper: false
-      - name: Terraform plan
-        run: |
-          ./hack/infra.sh plan prod
-      - name: Terraform apply
-        run: |
-          ./hack/infra.sh apply prod
-      - name: Terraform output
-        run: |
-          ./hack/infra.sh output prod
-      - uses: actions/upload-artifact@v2
-        with:
-          name: tf-output
-          path: ./tf_output.json
-          retention-days: 1
-
   build-docker:
     name: Build Docker image
     runs-on: ubuntu-latest
@@ -52,7 +23,7 @@ jobs:
   deploy-bot :
     name: Deploy bot
     runs-on: ubuntu-latest
-    needs: [apply-infra, build-docker]
+    needs: [build-docker]
     env:
       SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
       SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
@@ -70,10 +41,6 @@ jobs:
           mkdir -p "$HOME/.kube"
           scw k8s kubeconfig get "${SCW_K8S_CLUSTER_ID}" > "$HOME/.kube/config"
           chmod 400 $HOME/.kube/config
-      - name: Get Terraform output
-        uses: actions/download-artifact@v2
-        with:
-          name: tf-output
       - name: Deploy Helm release
         run: |
           ./hack/deploy.sh

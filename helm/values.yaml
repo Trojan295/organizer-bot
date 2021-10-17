@@ -36,8 +36,6 @@ affinity: {}
 
 bot:
   existingSecretName: organizer-bot
-  aws:
-    region: eu-west-3
 
-  todo:
-    dynamoDBTableName: ""
+redis:
+  architecture: standalone

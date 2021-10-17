@@ -2,15 +2,6 @@
 
 set -eEu
 
-TF_OUTPUT_FILE="tf_output.json"
-
-terraform::output::todoDynamoDBTableName() {
-  cat "${TF_OUTPUT_FILE}" | jq -r '.todo_list_dynamodb_table_name.value'
-}
-
-terraform::output::scheduleDynamoDBTableName() {
-  cat "${TF_OUTPUT_FILE}" | jq -r '.schedules_dynamodb_table_name.value'
-}
 
 helm::upgrade() {
   local helm_flags="$1"
@@ -26,8 +17,7 @@ helm::upgrade() {
 }
 
 main() {
-  local helm_flags="--set bot.todo.dynamoDBTableName=$(terraform::output::todoDynamoDBTableName)"
-  helm_flags="${helm_flags} --set bot.schedule.dynamoDBTableName=$(terraform::output::scheduleDynamoDBTableName)"
+  local helm_flags="--set redis.auth.password=password"
 
   helm::upgrade "${helm_flags}"
 }

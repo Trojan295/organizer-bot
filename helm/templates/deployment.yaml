@@ -36,22 +36,8 @@ spec:
                 secretKeyRef:
                   name: "{{ .Values.bot.existingSecretName }}"
                   key: "discordToken"
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: "{{ .Values.bot.existingSecretName }}"
-                  key: "awsAccessKeyId"
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: "{{ .Values.bot.existingSecretName }}"
-                  key: "awsSecretAccessKey"
-            - name: AWS_REGION
-              value: "{{ .Values.bot.aws.region }}"
-            - name: APP_TODO_DYNAMODBTABLENAME
-              value: "{{ .Values.bot.todo.dynamoDBTableName }}"
-            - name: APP_SCHEDULE_DYNAMODBTABLENAME
-              value: "{{ .Values.bot.schedule.dynamoDBTableName }}"
+            - name: APP_REDIS_ADDRESS
+              value: {{ .Chart.Name }}-redis-master
           ports:
             - name: http
               containerPort: 80
