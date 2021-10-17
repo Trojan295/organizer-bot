@@ -6,8 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/pkg/errors"
+	"github.com/go-redis/redis/v8"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/Trojan295/organizer-bot/internal"
@@ -19,7 +18,9 @@ import (
 )
 
 type TodoConfig struct {
-	DynamoDBTableName string `required:"true"`
+	RedisAddress  string `required:"true"`
+	RedisDB       int    `default:"0"`
+	RedisPassword string
 }
 
 type ReminderConfig struct {
@@ -50,15 +51,16 @@ var (
 func getSlashModule() (commands.SlashModule, error) {
 	module := commands.NewModuleAggregator()
 
-	sess, err := session.NewSession()
-	if err != nil {
-		return nil, errors.Wrap(err, "while creating AWS session")
-	}
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     cfg.Todo.RedisAddress,
+		Password: cfg.Todo.RedisPassword,
+		DB:       cfg.Todo.RedisDB,
+	})
 
-	todoRepo := todo.NewDynamoDBRepostory(sess, cfg.Todo.DynamoDBTableName)
+	todoRepo := todo.NewRedisTodoStore(rdb)
 	todoModule := commands.NewTodoModule(todoRepo)
 
-	reminderRepo := reminder.NewDynamoDBRepostory(sess, cfg.Reminder.DynamoDBTableName)
+	reminderRepo := reminder.NewRedisReminderStore(rdb)
 	reminderModule := commands.NewReminderModule(reminderRepo)
 
 	module.AddModules(todoModule, reminderModule)

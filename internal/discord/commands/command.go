@@ -16,6 +16,7 @@ const (
 type SlashModule interface {
 	GetApplicationCommands() []*discordgo.ApplicationCommand
 	GetCommandCreateHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)
+	GetComponentHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
 type ModuleAggregator struct {
@@ -45,6 +46,18 @@ func (a *ModuleAggregator) GetCommandCreateHandlers() map[string]func(s *discord
 
 	for _, m := range a.modules {
 		for k, v := range m.GetCommandCreateHandlers() {
+			handlers[k] = v
+		}
+	}
+
+	return handlers
+}
+
+func (a *ModuleAggregator) GetComponentHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	handlers := make(map[string]func(*discordgo.Session, *discordgo.InteractionCreate))
+
+	for _, m := range a.modules {
+		for k, v := range m.GetComponentHandlers() {
 			handlers[k] = v
 		}
 	}
@@ -83,11 +96,19 @@ func SetupDiscordHandlers(s *discordgo.Session, module SlashModule) {
 		log.Println("Bot is running")
 	})
 
-	handlers := module.GetCommandCreateHandlers()
+	commandHandlers := module.GetCommandCreateHandlers()
+	componentHandlers := module.GetComponentHandlers()
 
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
-			h(s, i)
+		switch i.Type {
+		case discordgo.InteractionApplicationCommand:
+			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
+				h(s, i)
+			}
+		case discordgo.InteractionMessageComponent:
+			if h, ok := componentHandlers[i.MessageComponentData().CustomID]; ok {
+				h(s, i)
+			}
 		}
 	})
 }

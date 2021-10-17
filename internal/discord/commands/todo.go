@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Trojan295/organizer-bot/internal/todo"
 	"github.com/bwmarrin/discordgo"
@@ -10,8 +12,8 @@ import (
 )
 
 type TodoRepository interface {
-	Get(ID string) (*todo.List, error)
-	Save(ID string, l *todo.List) error
+	Get(ctx context.Context, ID string) (*todo.List, error)
+	Save(ctx context.Context, ID string, l *todo.List) error
 }
 
 type TodoModule struct {
@@ -72,30 +74,37 @@ func (m *TodoModule) GetCommandCreateHandlers() map[string]func(s *discordgo.Ses
 	}
 }
 
+func (m *TodoModule) GetComponentHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
+}
+
 func (m *TodoModule) todoHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
 	if len(i.ApplicationCommandData().Options) == 0 {
-		m.showTodoHandler(s, i)
+		m.showTodoHandler(ctx, s, i)
 		return
 	}
 
 	switch i.ApplicationCommandData().Options[0].Name {
 	case "add":
-		m.addTodoHandler(s, i, i.ApplicationCommandData().Options[0])
+		m.addTodoHandler(ctx, s, i, i.ApplicationCommandData().Options[0])
 	case "show":
-		m.showTodoHandler(s, i)
+		m.showTodoHandler(ctx, s, i)
 	case "done":
-		m.doneTodoHandler(s, i, i.ApplicationCommandData().Options[0])
+		m.doneTodoHandler(ctx, s, i, i.ApplicationCommandData().Options[0])
 
 	default:
 		unknownCommandHandler(s, i)
 	}
 }
 
-func (m *TodoModule) showTodoHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (m *TodoModule) showTodoHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	channelID := i.ChannelID
 	logrus := logrus.WithField("channelID", channelID)
 
-	list, err := m.todoRepository.Get(channelID)
+	list, err := m.todoRepository.Get(ctx, channelID)
 	if err != nil {
 		logrus.WithError(err).Errorf("cannot get Todo list")
 		serverErrorCommandHandler(s, i)
@@ -112,13 +121,13 @@ func (m *TodoModule) showTodoHandler(s *discordgo.Session, i *discordgo.Interact
 	stringResponseHandler(s, i, builder.String())
 }
 
-func (m *TodoModule) addTodoHandler(s *discordgo.Session, i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) {
+func (m *TodoModule) addTodoHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) {
 	channelID := i.ChannelID
 	message := opt.Options[0].StringValue()
 
 	logrus := logrus.WithField("channelID", channelID)
 
-	list, err := m.todoRepository.Get(i.ChannelID)
+	list, err := m.todoRepository.Get(ctx, i.ChannelID)
 	if err != nil {
 		logrus.WithError(err).Error("cannot get list")
 		serverErrorCommandHandler(s, i)
@@ -126,7 +135,7 @@ func (m *TodoModule) addTodoHandler(s *discordgo.Session, i *discordgo.Interacti
 	}
 
 	list.Entries = append(list.Entries, todo.Entry{Text: message})
-	if err := m.todoRepository.Save(i.ChannelID, list); err != nil {
+	if err := m.todoRepository.Save(ctx, i.ChannelID, list); err != nil {
 		logrus.WithError(err).Error("cannot save list")
 		serverErrorCommandHandler(s, i)
 		return
@@ -135,13 +144,13 @@ func (m *TodoModule) addTodoHandler(s *discordgo.Session, i *discordgo.Interacti
 	stringResponseHandler(s, i, fmt.Sprintf("🚀 **Task added!**\n%s", message))
 }
 
-func (m *TodoModule) doneTodoHandler(s *discordgo.Session, i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) {
+func (m *TodoModule) doneTodoHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) {
 	channelID := i.ChannelID
 	itemPos := int(opt.Options[0].IntValue() - 1)
 
 	logrus := logrus.WithField("channelID", channelID)
 
-	list, err := m.todoRepository.Get(i.ChannelID)
+	list, err := m.todoRepository.Get(ctx, i.ChannelID)
 	if err != nil {
 		logrus.WithError(err).Error("cannot get list")
 		serverErrorCommandHandler(s, i)
@@ -156,7 +165,7 @@ func (m *TodoModule) doneTodoHandler(s *discordgo.Session, i *discordgo.Interact
 	task := list.Entries[itemPos]
 
 	list.Entries = append(list.Entries[0:itemPos], list.Entries[itemPos+1:]...)
-	err = m.todoRepository.Save(i.ChannelID, list)
+	err = m.todoRepository.Save(ctx, i.ChannelID, list)
 	if err != nil {
 		logrus.WithError(err).Error("cannot save list")
 		serverErrorCommandHandler(s, i)

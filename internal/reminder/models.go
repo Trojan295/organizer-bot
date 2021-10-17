@@ -2,11 +2,7 @@ package reminder
 
 import "time"
 
-type Reminders struct {
-	Items []Item
-}
-
-type Item struct {
+type Reminder struct {
 	Title string
 	Date  *time.Time
 }
