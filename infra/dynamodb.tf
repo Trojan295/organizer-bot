@@ -15,8 +15,8 @@ resource "aws_dynamodb_table" "todo_lists" {
   }
 }
 
-resource "aws_dynamodb_table" "schedules" {
-  name         = "${local.namespace}-schedules"
+resource "aws_dynamodb_table" "reminders" {
+  name         = "${local.namespace}-reminders"
   billing_mode = "PAY_PER_REQUEST"
 
   hash_key = "ChannelId"

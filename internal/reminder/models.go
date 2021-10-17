@@ -1,8 +1,8 @@
-package schedule
+package reminder
 
 import "time"
 
-type Schedule struct {
+type Reminders struct {
 	Items []Item
 }
 

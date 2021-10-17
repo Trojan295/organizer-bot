@@ -12,7 +12,7 @@ import (
 
 	"github.com/Trojan295/organizer-bot/internal"
 	"github.com/Trojan295/organizer-bot/internal/discord/commands"
-	"github.com/Trojan295/organizer-bot/internal/schedule"
+	"github.com/Trojan295/organizer-bot/internal/reminder"
 	"github.com/Trojan295/organizer-bot/internal/todo"
 	"github.com/bwmarrin/discordgo"
 	"github.com/kelseyhightower/envconfig"
@@ -22,7 +22,7 @@ type TodoConfig struct {
 	DynamoDBTableName string `required:"true"`
 }
 
-type ScheduleConfig struct {
+type ReminderConfig struct {
 	DynamoDBTableName string `required:"true"`
 }
 
@@ -35,7 +35,7 @@ type Config struct {
 
 	Testing  TestingConfig
 	Todo     TodoConfig     `required:"true"`
-	Schedule ScheduleConfig `required:"true"`
+	Reminder ReminderConfig `required:"true"`
 }
 
 const (
@@ -58,10 +58,10 @@ func getSlashModule() (commands.SlashModule, error) {
 	todoRepo := todo.NewDynamoDBRepostory(sess, cfg.Todo.DynamoDBTableName)
 	todoModule := commands.NewTodoModule(todoRepo)
 
-	scheduleRepo := schedule.NewDynamoDBRepostory(sess, cfg.Schedule.DynamoDBTableName)
-	scheduleModule := commands.NewScheduleModule(scheduleRepo)
+	reminderRepo := reminder.NewDynamoDBRepostory(sess, cfg.Reminder.DynamoDBTableName)
+	reminderModule := commands.NewReminderModule(reminderRepo)
 
-	module.AddModules(todoModule, scheduleModule)
+	module.AddModules(todoModule, reminderModule)
 
 	return module, nil
 }

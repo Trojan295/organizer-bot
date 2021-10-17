@@ -1,4 +1,4 @@
-package schedule
+package reminder
 
 import (
 	"bytes"
@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	dynamoIDKey       = "ChannelId"
-	dynamoScheduleKey = "Schedule"
+	dynamoIDKey           = "ChannelId"
+	dynamoReminderDataKey = "ReminderData"
 )
 
 type DynamoDBRepository struct {
@@ -29,7 +29,7 @@ func NewDynamoDBRepostory(sess *session.Session, tableName string) *DynamoDBRepo
 	}
 }
 
-func (r *DynamoDBRepository) Get(id string) (*Schedule, error) {
+func (r *DynamoDBRepository) Get(id string) (*Reminders, error) {
 	resp, err := r.dynamodbCli.GetItem(&dynamodb.GetItemInput{
 		TableName: &r.tableName,
 		Key: map[string]*dynamodb.AttributeValue{
@@ -43,14 +43,14 @@ func (r *DynamoDBRepository) Get(id string) (*Schedule, error) {
 		return nil, errors.Wrap(err, "while getting item")
 	}
 
-	value := resp.Item[dynamoScheduleKey]
+	value := resp.Item[dynamoReminderDataKey]
 	if value == nil {
-		return &Schedule{}, nil
+		return &Reminders{}, nil
 	}
 
 	dec := gob.NewDecoder(bytes.NewBuffer(value.B))
 
-	list := &Schedule{}
+	list := &Reminders{}
 	if err := dec.Decode(list); err != nil {
 		return nil, errors.Wrap(err, "while decoding schedule value")
 	}
@@ -58,7 +58,7 @@ func (r *DynamoDBRepository) Get(id string) (*Schedule, error) {
 	return list, nil
 }
 
-func (r *DynamoDBRepository) Save(id string, l *Schedule) error {
+func (r *DynamoDBRepository) Save(id string, l *Reminders) error {
 	buf := bytes.Buffer{}
 	enc := gob.NewEncoder(&buf)
 
@@ -72,7 +72,7 @@ func (r *DynamoDBRepository) Save(id string, l *Schedule) error {
 			dynamoIDKey: {
 				S: aws.String(id),
 			},
-			dynamoScheduleKey: {
+			dynamoReminderDataKey: {
 				B: buf.Bytes(),
 			},
 		},
