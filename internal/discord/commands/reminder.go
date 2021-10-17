@@ -72,22 +72,19 @@ func (m *ReminderModule) GetApplicationCommands() []*discordgo.ApplicationComman
 	}
 }
 
-func (m *ReminderModule) GetCommandCreateHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+func (m *ReminderModule) GetCommandCreateHandlers() map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate){
 		"reminder": m.reminderHandler,
 	}
 }
 
-func (m *ReminderModule) GetComponentHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+func (m *ReminderModule) GetComponentHandlers() map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
+	return map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate){
 		"reminder_remove": m.reminderRemoveComponentHandler,
 	}
 }
 
-func (m *ReminderModule) reminderHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-
+func (m *ReminderModule) reminderHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if len(i.ApplicationCommandData().Options) == 0 {
 		clientErrorCommandHandler(s, i, "Invalid command")
 		return
@@ -206,9 +203,9 @@ func (m *ReminderModule) reminderRemoveCommandHandler(ctx context.Context, s *di
 	}
 }
 
-func (m *ReminderModule) reminderRemoveComponentHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (m *ReminderModule) reminderRemoveComponentHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	reminderID := i.MessageComponentData().Values[0]
-	if err := m.reminderRepository.Remove(context.TODO(), i.ChannelID, reminderID); err != nil {
+	if err := m.reminderRepository.Remove(ctx, i.ChannelID, reminderID); err != nil {
 		logrus.WithError(err).Error("failed to delete reminder")
 		serverErrorCommandHandler(s, i)
 		return

@@ -17,14 +17,10 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-type TodoConfig struct {
-	RedisAddress  string `required:"true"`
-	RedisDB       int    `default:"0"`
-	RedisPassword string
-}
-
-type ReminderConfig struct {
-	DynamoDBTableName string `required:"true"`
+type RedisConfig struct {
+	Address  string `required:"true"`
+	Password string
+	DB       int
 }
 
 type TestingConfig struct {
@@ -34,9 +30,8 @@ type TestingConfig struct {
 type Config struct {
 	DiscordToken string `required:"true"`
 
-	Testing  TestingConfig
-	Todo     TodoConfig     `required:"true"`
-	Reminder ReminderConfig `required:"true"`
+	Redis   RedisConfig
+	Testing TestingConfig
 }
 
 const (
@@ -48,13 +43,13 @@ var (
 	cfg Config
 )
 
-func getSlashModule() (commands.SlashModule, error) {
+func getSlashModule() commands.SlashModule {
 	module := commands.NewModuleAggregator()
 
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     cfg.Todo.RedisAddress,
-		Password: cfg.Todo.RedisPassword,
-		DB:       cfg.Todo.RedisDB,
+		Addr:     cfg.Redis.Address,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
 	})
 
 	todoRepo := todo.NewRedisTodoStore(rdb)
@@ -65,7 +60,7 @@ func getSlashModule() (commands.SlashModule, error) {
 
 	module.AddModules(todoModule, reminderModule)
 
-	return module, nil
+	return module
 }
 
 func main() {
@@ -84,10 +79,7 @@ func main() {
 		log.WithError(err).Fatal("failed to create Discord client")
 	}
 
-	slashMod, err := getSlashModule()
-	if err != nil {
-		log.WithError(err).Fatal("failed to get SlashModule")
-	}
+	slashMod := getSlashModule()
 
 	commands.SetupDiscordHandlers(ds, slashMod)
 

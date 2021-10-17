@@ -1,7 +1,9 @@
 package commands
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
@@ -15,8 +17,8 @@ const (
 
 type SlashModule interface {
 	GetApplicationCommands() []*discordgo.ApplicationCommand
-	GetCommandCreateHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)
-	GetComponentHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate)
+	GetCommandCreateHandlers() map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate)
+	GetComponentHandlers() map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
 type ModuleAggregator struct {
@@ -41,8 +43,8 @@ func (a *ModuleAggregator) GetApplicationCommands() []*discordgo.ApplicationComm
 	return cmds
 }
 
-func (a *ModuleAggregator) GetCommandCreateHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	handlers := make(map[string]func(*discordgo.Session, *discordgo.InteractionCreate))
+func (a *ModuleAggregator) GetCommandCreateHandlers() map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
+	handlers := make(map[string]func(context.Context, *discordgo.Session, *discordgo.InteractionCreate))
 
 	for _, m := range a.modules {
 		for k, v := range m.GetCommandCreateHandlers() {
@@ -53,8 +55,8 @@ func (a *ModuleAggregator) GetCommandCreateHandlers() map[string]func(s *discord
 	return handlers
 }
 
-func (a *ModuleAggregator) GetComponentHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	handlers := make(map[string]func(*discordgo.Session, *discordgo.InteractionCreate))
+func (a *ModuleAggregator) GetComponentHandlers() map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
+	handlers := make(map[string]func(context.Context, *discordgo.Session, *discordgo.InteractionCreate))
 
 	for _, m := range a.modules {
 		for k, v := range m.GetComponentHandlers() {
@@ -100,14 +102,17 @@ func SetupDiscordHandlers(s *discordgo.Session, module SlashModule) {
 	componentHandlers := module.GetComponentHandlers()
 
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
 		switch i.Type {
 		case discordgo.InteractionApplicationCommand:
 			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-				h(s, i)
+				h(ctx, s, i)
 			}
 		case discordgo.InteractionMessageComponent:
 			if h, ok := componentHandlers[i.MessageComponentData().CustomID]; ok {
-				h(s, i)
+				h(ctx, s, i)
 			}
 		}
 	})
