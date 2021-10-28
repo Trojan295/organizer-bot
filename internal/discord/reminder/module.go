@@ -78,7 +78,7 @@ func (m *Module) GetApplicationCommandSubgroups() []*discordgo.ApplicationComman
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "date",
-							Description: "Date in UTC, e.g. 20.12.2021 15:48",
+							Description: "Date in format: 20.12.2021 15:48",
 							Required:    true,
 						},
 						{
