@@ -23,3 +23,11 @@ redis:
 
     # Enabled RDB persistence with snapshot, every 5 minutes, if at least 1000 keys changed
     save 300 1000
+
+  metrics:
+    enabled: true
+
+    serviceMonitor:
+      enabled: true
+      labels:
+        release: monitoring-stack
