@@ -1,31 +1,6 @@
-resources:
-  limits:
-    cpu: 100m
-    memory: 128Mi
-  requests:
-    cpu: 100m
-    memory: 128Mi
-
 bot:
   existingSecretName: organizer-bot-dev
 
 redis:
-  architecture: standalone
   auth:
     existingSecret: organizer-bot-dev
-
-  commonConfiguration: |-
-    # Enable AOF, fsync every second
-    appendonly yes
-    appendfsync everysec
-
-    # Enabled RDB persistence with snapshot, every 5 minutes, if at least 1000 keys changed
-    save 300 1000
-
-  metrics:
-    enabled: true
-
-    serviceMonitor:
-      enabled: true
-      additionalLabels:
-        release: monitoring-stack
