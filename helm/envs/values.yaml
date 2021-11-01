@@ -8,6 +8,30 @@ resources:
     cpu: 100m
     memory: 128Mi
 
+metrics:
+  prometheusRules:
+    enabled: true
+    rules:
+      - alert: ServerSideErrors
+        annotations:
+          description: |
+            {{ $labels.service }} has many errors on {{ $labels.command }}. Check the logs for more information.
+          summary: Organizer bot has many server side errors.
+        expr: sum by (command) (rate(organizer_bot_executed_commands_total{result=~"error_server"}[5m])) / sum by (command) (rate(organizer_bot_executed_commands_total{result=~"error_server|success"}[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: error
+
+      - alert: ClientSideErrors
+        annotations:
+          description: |
+            {{ $labels.service }} has many errors on {{ $labels.command }}. This could indicate bad UX for this command.
+          summary: Organizer bot has many client side errors
+        expr: sum by (command) (rate(organizer_bot_executed_commands_total{result=~"error_client"}[5m])) / sum by (command) (rate(organizer_bot_executed_commands_total{result=~"error_client|success"}[5m])) > 0.1
+        for: 2m
+        labels:
+          severity: error
+
 redis:
   architecture: standalone
 
@@ -71,4 +95,3 @@ redis:
             summary: Redis&trade; instance {{ "{{ $labels.instance }}" }} has evicted keys
             description: |
               Redis&trade; instance {{ "{{ $labels.instance }}" }} has evicted {{ "{{ $value }}" }} keys in the last 5 minutes.
-    
