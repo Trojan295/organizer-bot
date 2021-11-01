@@ -1,0 +1,18 @@
+{{- if .Values.metrics.prometheusRules.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    app: kube-prometheus-stack
+    release: monitoring-stack
+    {{- include "organizer-bot.labels" . | nindent 4 }}
+  name: {{ include "organizer-bot.fullname" . }}-bot
+spec:
+  groups:
+  - name: organizer-bot
+    rules:
+    {{- range $i, $val := .Values.metrics.prometheusRules.rules }}
+    - 
+{{ toYaml $val | indent 6 }}
+    {{- end }}
+{{- end }}
