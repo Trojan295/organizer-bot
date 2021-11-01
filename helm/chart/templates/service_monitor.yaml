@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "organizer-bot.fullname" . }}-bot
+  labels:
+    release: monitoring-stack
+    {{- include "organizer-bot.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "organizer-bot.labels" . | nindent 6 }}
+  endpoints:
+  - port: metrics
+    interval: 1m

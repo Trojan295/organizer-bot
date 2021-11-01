@@ -47,8 +47,8 @@ spec:
                   name: "{{ .Values.redis.auth.existingSecret }}"
                   key: "redis-password"
           ports:
-            - name: http
-              containerPort: 80
+            - name: metrics
+              containerPort: 2112
               protocol: TCP
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

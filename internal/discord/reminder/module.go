@@ -7,13 +7,17 @@ import (
 	"time"
 
 	"github.com/Trojan295/organizer-bot/internal/discord/common"
+	"github.com/Trojan295/organizer-bot/internal/metrics"
 	"github.com/Trojan295/organizer-bot/internal/reminder"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
 )
 
 const (
-	datetimeFormat = "02.01.2006 15:04"
+	datetimeFormat      = "02.01.2006 15:04"
+	LabelReminderAdd    = "reminder_add"
+	LabelReminderShow   = "reminder_show"
+	LabelReminderRemove = "reminder_remove"
 )
 
 type Repository interface {
@@ -132,21 +136,27 @@ func (m *Module) reminderHandler(ctx context.Context, s *discordgo.Session, i *d
 }
 
 func (m *Module) reminderAddHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, opt *discordgo.ApplicationCommandInteractionDataOption) {
+	metrics.CountExecutedCommand(LabelReminderAdd)
+
 	datetimeStr := opt.Options[0].StringValue()
 
 	location, err := m.timezoneRepository.GetCurrentTimezone(ctx, i.ChannelID)
 	if err != nil {
+		metrics.CountServerErroredCommand(LabelReminderAdd)
 		m.logger.WithError(err).Error("failed to get current timezone")
 		common.ServerErrorCommandHandler(m.logger, s, i)
 		return
 	}
+
 	if location == nil {
+		metrics.CountClientErroredCommand(LabelReminderAdd)
 		common.ClientErrorCommandHandler(m.logger, s, i, "You have to first set your timezone!\nUse `/organizer config timezone` to set the timezone.")
 		return
 	}
 
 	datetime, err := time.ParseInLocation(datetimeFormat, datetimeStr, location)
 	if err != nil {
+		metrics.CountClientErroredCommand(LabelReminderAdd)
 		common.ClientErrorCommandHandler(m.logger, s, i, `Date is wrong. Should be in "day.month.year hour:minute" format.`)
 		return
 	}
@@ -158,7 +168,8 @@ func (m *Module) reminderAddHandler(ctx context.Context, s *discordgo.Session, i
 		Date:  &datetime,
 	})
 	if err != nil {
-		m.logger.WithError(err).Error("failed to get reminders")
+		metrics.CountServerErroredCommand(LabelReminderAdd)
+		m.logger.WithError(err).Error("failed to add reminder")
 		common.ServerErrorCommandHandler(m.logger, s, i)
 		return
 	}
@@ -169,8 +180,12 @@ func (m *Module) reminderAddHandler(ctx context.Context, s *discordgo.Session, i
 }
 
 func (m *Module) reminderShowHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
+	metrics.CountExecutedCommand(LabelReminderShow)
+
 	reminders, err := m.reminderRepository.GetReminders(ctx, i.ChannelID)
 	if err != nil {
+		metrics.CountServerErroredCommand(LabelReminderShow)
+
 		m.logger.WithError(err).Error("failed to get reminders")
 		common.ServerErrorCommandHandler(m.logger, s, i)
 		return
@@ -187,10 +202,14 @@ func (m *Module) reminderShowHandler(ctx context.Context, s *discordgo.Session, 
 }
 
 func (m *Module) reminderRemoveCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
+	metrics.CountExecutedCommand(LabelReminderRemove)
+
 	var options []discordgo.SelectMenuOption
 
 	reminders, err := m.reminderRepository.GetReminders(ctx, i.ChannelID)
 	if err != nil {
+		metrics.CountServerErroredCommand(LabelReminderRemove)
+
 		m.logger.WithError(err).Error("failed to get reminders")
 		common.ServerErrorCommandHandler(m.logger, s, i)
 		return
@@ -235,10 +254,14 @@ func (m *Module) reminderRemoveComponentHandler(ctx context.Context, s *discordg
 	reminderID := i.MessageComponentData().Values[0]
 
 	if err := s.ChannelMessageDelete(i.Message.ChannelID, i.Message.ID); err != nil {
+		metrics.CountServerErroredCommand(LabelReminderRemove)
 		m.logger.WithError(err).Error("failed to delete message")
+		common.ServerErrorCommandHandler(m.logger, s, i)
+		return
 	}
 
 	if err := m.reminderRepository.RemoveReminder(ctx, i.ChannelID, reminderID); err != nil {
+		metrics.CountServerErroredCommand(LabelReminderRemove)
 		m.logger.WithError(err).Error("failed to delete reminder")
 		common.ServerErrorCommandHandler(m.logger, s, i)
 		return

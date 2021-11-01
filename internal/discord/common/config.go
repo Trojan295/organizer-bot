@@ -5,8 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Trojan295/organizer-bot/internal/metrics"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	LabelConfigTimezoneSet = "config_timezone_set"
+	LabelConfigTimezoneGet = "config_timezone_get"
 )
 
 type TimezoneRepository interface {
@@ -101,9 +107,12 @@ func (module *ConfigModule) timezoneHandler(ctx context.Context, s *discordgo.Se
 func (module *ConfigModule) getTimezoneHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) {
 	tz, err := module.timezoneRepository.GetCurrentTimezone(ctx, i.ChannelID)
 	if err != nil {
+		metrics.CountServerErroredCommand(LabelConfigTimezoneGet)
 		ServerErrorCommandHandler(module.logger, s, i)
 		return
 	}
+
+	metrics.CountExecutedCommand(LabelConfigTimezoneGet)
 
 	if tz == nil {
 		StringResponseHandler(module.logger, s, i, "🕑 Timezone is not set!")
@@ -119,6 +128,7 @@ func (module *ConfigModule) setTimezoneHandler(ctx context.Context, s *discordgo
 
 	location, err := time.LoadLocation(tzString)
 	if err != nil {
+		metrics.CountClientErroredCommand(LabelConfigTimezoneSet)
 		ClientErrorCommandHandler(module.logger, s, i, `Incorrect timezone name!
 Example names are: **Europe/Berlin**, **UTC** or **EST**.
 You can find a list of timezone names here:
@@ -127,10 +137,12 @@ https://en.wikipedia.org/wiki/List_of_tz_database_time_zones`)
 	}
 
 	if err := module.timezoneRepository.SetCurrentTimezone(ctx, i.ChannelID, location); err != nil {
+		metrics.CountServerErroredCommand(LabelConfigTimezoneSet)
 		module.logger.WithError(err).Error("failed to set timezone")
 		ServerErrorCommandHandler(module.logger, s, i)
 		return
 	}
 
+	metrics.CountExecutedCommand(LabelConfigTimezoneSet)
 	StringResponseHandler(module.logger, s, i, fmt.Sprintf("🚀 Timezone set to **%s**.", location.String()))
 }

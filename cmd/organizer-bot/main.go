@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/Trojan295/organizer-bot/internal"
@@ -19,6 +21,7 @@ import (
 	discordreminder "github.com/Trojan295/organizer-bot/internal/discord/reminder"
 	"github.com/Trojan295/organizer-bot/internal/discord/root"
 	discordtodo "github.com/Trojan295/organizer-bot/internal/discord/todo"
+	"github.com/Trojan295/organizer-bot/internal/metrics"
 	"github.com/Trojan295/organizer-bot/internal/organizer"
 	"github.com/Trojan295/organizer-bot/internal/reminder"
 	"github.com/Trojan295/organizer-bot/internal/todo"
@@ -148,7 +151,17 @@ func setupCommandHandlers(s *discordgo.Session, rootModule *root.Module) {
 	})
 }
 
-// TODO: unregister /todo and /reminder commands
+func startMetricsEndpoint(ctx context.Context) {
+	go metrics.RunDiscordMetricsRecorder(ctx, ds)
+
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		if err := http.ListenAndServe(":2112", nil); err != nil {
+			log.Error(err, "failed to serve HTTP server")
+		}
+	}()
+}
+
 func main() {
 	var (
 		err error
@@ -192,6 +205,8 @@ func main() {
 
 	defer cleanupAppCmds()
 	defer ds.Close()
+
+	startMetricsEndpoint(ctx)
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)

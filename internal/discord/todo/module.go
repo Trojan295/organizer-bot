@@ -6,9 +6,16 @@ import (
 	"strings"
 
 	"github.com/Trojan295/organizer-bot/internal/discord/common"
+	"github.com/Trojan295/organizer-bot/internal/metrics"
 	"github.com/Trojan295/organizer-bot/internal/todo"
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	LabelTodoAdd  = "todo_add"
+	LabelTodoShow = "todo_show"
+	LabelTodoDone = "todo_done"
 )
 
 type Repository interface {
@@ -112,6 +119,7 @@ func (m *Module) showTodoHandler(ctx context.Context, s *discordgo.Session, i *d
 
 	entries, err := m.todoRepository.GetEntries(ctx, channelID)
 	if err != nil {
+		metrics.CountServerErroredCommand(LabelTodoShow)
 		m.logger.WithError(err).Error("cannot get Todo list")
 		common.ServerErrorCommandHandler(m.logger, s, i)
 		return
@@ -124,6 +132,8 @@ func (m *Module) showTodoHandler(ctx context.Context, s *discordgo.Session, i *d
 		builder.WriteString(fmt.Sprintf("%d. %s\n", i+1, entry.Text))
 	}
 
+	metrics.CountExecutedCommand(LabelTodoShow)
+
 	common.StringResponseHandler(m.logger, s, i, builder.String())
 }
 
@@ -134,10 +144,13 @@ func (m *Module) addTodoHandler(ctx context.Context, s *discordgo.Session, i *di
 		Text: todoText,
 	})
 	if err != nil {
+		metrics.CountServerErroredCommand(LabelTodoAdd)
 		m.logger.WithError(err).Error("cannot add entry")
 		common.ServerErrorCommandHandler(m.logger, s, i)
 		return
 	}
+
+	metrics.CountExecutedCommand(LabelTodoAdd)
 
 	common.StringResponseHandler(m.logger, s, i, fmt.Sprintf("🚀 **Task added!**\n%s", todoText))
 }
@@ -145,6 +158,8 @@ func (m *Module) addTodoHandler(ctx context.Context, s *discordgo.Session, i *di
 func (m *Module) todoDoneCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, _ *discordgo.ApplicationCommandInteractionDataOption) {
 	entries, err := m.todoRepository.GetEntries(ctx, i.ChannelID)
 	if err != nil {
+		metrics.CountServerErroredCommand(LabelTodoDone)
+
 		m.logger.WithError(err).Error("failed to get entries")
 		common.ServerErrorCommandHandler(m.logger, s, i)
 		return
@@ -199,21 +214,27 @@ func (m *Module) todoDoneComponentHandler(ctx context.Context, s *discordgo.Sess
 	entryID := i.MessageComponentData().Values[0]
 
 	if err := s.ChannelMessageDelete(i.Message.ChannelID, i.Message.ID); err != nil {
+		metrics.CountServerErroredCommand(LabelTodoDone)
 		m.logger.WithError(err).Error("failed to delete message")
+		common.ServerErrorCommandHandler(m.logger, s, i)
 	}
 
 	entry, err := m.todoRepository.GetEntry(ctx, i.ChannelID, entryID)
 	if err != nil {
+		metrics.CountServerErroredCommand(LabelTodoDone)
 		m.logger.WithError(err).Error("failed to get entry")
 		common.ServerErrorCommandHandler(m.logger, s, i)
 		return
 	}
 
 	if err := m.todoRepository.RemoveEntry(ctx, i.ChannelID, entryID); err != nil {
+		metrics.CountServerErroredCommand(LabelTodoDone)
 		m.logger.WithError(err).Error("failed to remove entry")
 		common.ServerErrorCommandHandler(m.logger, s, i)
 		return
 	}
+
+	metrics.CountExecutedCommand(LabelTodoDone)
 
 	message := fmt.Sprintf("**Task done!**\n%s", entry.Text)
 	common.StringResponseHandler(m.logger, s, i, message)

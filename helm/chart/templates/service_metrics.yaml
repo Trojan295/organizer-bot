@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "organizer-bot.fullname" . }}-bot
+  labels:
+    {{- include "organizer-bot.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - name: "metrics"
+    port: 2112
+    protocol: TCP
+    targetPort: 2112
+  selector:
+    {{- include "organizer-bot.selectorLabels" . | nindent 8 }}
