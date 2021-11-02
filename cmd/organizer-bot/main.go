@@ -59,6 +59,7 @@ var (
 
 	rdb           *redis.Client
 	reminderStore *reminder.RedisReminderStore
+	todoStore     *todo.RedisTodoStore
 	configStore   *organizer.RedisConfigStore
 )
 
@@ -80,7 +81,7 @@ func getRootModule() (*root.Module, error) {
 
 	configStore = organizer.NewRedisConfigStore(rdb)
 	reminderStore = reminder.NewRedisReminderStore(rdb)
-	todoStore := todo.NewRedisTodoStore(rdb)
+	todoStore = todo.NewRedisTodoStore(rdb)
 
 	todoModule, err := discordtodo.NewTodoModule(&discordtodo.ModuleConfig{
 		TodoRepo: todoStore,
@@ -112,6 +113,20 @@ func getRootModule() (*root.Module, error) {
 func getReminderService() *reminder.Service {
 	sender := message.NewSender(ds)
 	return reminder.NewService(sender, reminderStore)
+}
+
+func getTodoService() (*todo.Service, error) {
+	sender := message.NewSender(ds)
+	svc, err := todo.NewService(&todo.ServiceConfig{
+		Pusher:        sender,
+		Store:         todoStore,
+		TimezoneStore: configStore,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return svc, nil
 }
 
 func setupCommandHandlers(s *discordgo.Session, rootModule *root.Module) {
@@ -212,6 +227,10 @@ func main() {
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
 	reminderSvc := getReminderService()
+	todoSvc, err := getTodoService()
+	if err != nil {
+		log.WithError(err).Fatal("failed to get TodoService")
+	}
 
 	for {
 		select {
@@ -222,6 +241,9 @@ func main() {
 		case <-time.Tick(reminderCheckInterval):
 			if err := reminderSvc.Run(ctx); err != nil {
 				log.WithError(err).Error("failed to run ReminderService")
+			}
+			if err := todoSvc.Run(ctx); err != nil {
+				log.WithError(err).Error("failed to run TodoService")
 			}
 			break
 		}

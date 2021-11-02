@@ -27,7 +27,7 @@ func NewRedisTodoStore(client *redis.Client) *RedisTodoStore {
 }
 
 func (store *RedisTodoStore) GetEntry(ctx context.Context, channelID, entryID string) (*Entry, error) {
-	key := fmt.Sprintf("todo:%s:%s", channelID, entryID)
+	key := fmt.Sprintf("todo:%s:entries:%s", channelID, entryID)
 
 	data, err := store.redisClient.Get(ctx, key).Bytes()
 	if err != nil {
@@ -43,7 +43,7 @@ func (store *RedisTodoStore) GetEntry(ctx context.Context, channelID, entryID st
 }
 
 func (store *RedisTodoStore) ListEntries(ctx context.Context, channelID string) ([]string, error) {
-	keyPattern := fmt.Sprintf("todo:%s:*", channelID)
+	keyPattern := fmt.Sprintf("todo:%s:entries:*", channelID)
 
 	allKeys, err := redisutils.ScanKeys(ctx, store.redisClient, keyPattern)
 	if err != nil {
@@ -61,7 +61,7 @@ func (store *RedisTodoStore) ListEntries(ctx context.Context, channelID string) 
 	return allIDs, nil
 }
 
-func (store *RedisTodoStore) GetEntries(ctx context.Context, channelID string) ([]*Entry, error) {
+func (store *RedisTodoStore) GetEntries(ctx context.Context, channelID string) (List, error) {
 	IDs, err := store.ListEntries(ctx, channelID)
 	if err != nil {
 		return nil, errors.Wrap(err, "while listing entry IDs")
@@ -84,7 +84,7 @@ func (store *RedisTodoStore) AddEntry(ctx context.Context, channelID string, ent
 	UUID := uuid.New()
 	entry.ID = UUID.String()
 
-	key := fmt.Sprintf("todo:%s:%s", channelID, entry.ID)
+	key := fmt.Sprintf("todo:%s:entries:%s", channelID, entry.ID)
 	data, err := store.marshalEntry(entry)
 	if err != nil {
 		return "", errors.Wrap(err, "while marshaling entry")
@@ -98,10 +98,52 @@ func (store *RedisTodoStore) AddEntry(ctx context.Context, channelID string, ent
 }
 
 func (store *RedisTodoStore) RemoveEntry(ctx context.Context, channelID, entryID string) error {
-	key := fmt.Sprintf("todo:%s:%s", channelID, entryID)
+	key := fmt.Sprintf("todo:%s:entries:%s", channelID, entryID)
 
 	if err := store.redisClient.Del(ctx, key).Err(); err != nil {
 		return errors.Wrapf(err, "while DEL key %s", key)
+	}
+
+	return nil
+}
+
+func (store *RedisTodoStore) GetAllChannelsWithTodo(ctx context.Context) ([]string, error) {
+	keys, err := redisutils.ScanKeys(ctx, store.redisClient, "todo:*:entries:*")
+	if err != nil {
+		return nil, fmt.Errorf("while scanning keys: %w", err)
+	}
+
+	channelIDs := make([]string, 0)
+	for _, key := range keys {
+		els := strings.Split(key, ":")
+		if len(els) < 2 {
+			continue
+		}
+
+		channelID := els[1]
+		channelIDs = append(channelIDs, channelID)
+	}
+
+	return channelIDs, nil
+}
+
+func (store *RedisTodoStore) GetLastTodoNotificationTimestamp(ctx context.Context, channelID string) (int64, error) {
+	key := fmt.Sprintf("todo:%s:notificationTimestamp", channelID)
+	timestamp, err := store.redisClient.Get(ctx, key).Int64()
+	if err == redis.Nil {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	return timestamp, nil
+}
+
+func (store *RedisTodoStore) SetLastTodoNotificationTimestamp(ctx context.Context, channelID string, timestamp int64) error {
+	key := fmt.Sprintf("todo:%s:notificationTimestamp", channelID)
+	if _, err := store.redisClient.Set(ctx, key, timestamp, 0).Result(); err != nil {
+		return err
 	}
 
 	return nil

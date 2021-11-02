@@ -5,3 +5,5 @@ type Entry struct {
 	Text string
 	// TODO add updatedAt
 }
+
+type List []*Entry

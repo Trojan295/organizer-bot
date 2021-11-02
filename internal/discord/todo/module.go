@@ -20,7 +20,7 @@ const (
 
 type Repository interface {
 	GetEntry(ctx context.Context, channelID, entryID string) (*todo.Entry, error)
-	GetEntries(ctx context.Context, channelID string) ([]*todo.Entry, error)
+	GetEntries(ctx context.Context, channelID string) (todo.List, error)
 	AddEntry(ctx context.Context, channelID string, entry *todo.Entry) (string, error)
 	RemoveEntry(ctx context.Context, channelID, entryID string) error
 }

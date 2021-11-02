@@ -3,8 +3,10 @@ package message
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Trojan295/organizer-bot/internal/reminder"
+	"github.com/Trojan295/organizer-bot/internal/todo"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -25,6 +27,24 @@ func (send *Sender) PushReminder(ctx context.Context, rem *reminder.Reminder) er
 
 	_, err := send.session.ChannelMessageSendComplex(rem.ChannelID, &discordgo.MessageSend{
 		Content: msg,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (send *Sender) PushTodoListNotification(ctx context.Context, channelID string, list todo.List) error {
+	builder := strings.Builder{}
+	builder.WriteString(fmt.Sprintf("📰 **Tasks:** <#%s>\n", channelID))
+
+	for i, entry := range list {
+		builder.WriteString(fmt.Sprintf("%d. %s\n", i+1, entry.Text))
+	}
+
+	_, err := send.session.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+		Content: builder.String(),
 	})
 	if err != nil {
 		return err
