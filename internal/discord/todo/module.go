@@ -20,7 +20,7 @@ const (
 
 type Repository interface {
 	GetEntry(ctx context.Context, channelID, entryID string) (*todo.Entry, error)
-	GetEntries(ctx context.Context, channelID string) (todo.List, error)
+	GetEntries(ctx context.Context, channelID string) (*todo.List, error)
 	AddEntry(ctx context.Context, channelID string, entry *todo.Entry) (string, error)
 	RemoveEntry(ctx context.Context, channelID, entryID string) error
 }
@@ -117,7 +117,7 @@ func (m *Module) todoHandler(ctx context.Context, s *discordgo.Session, i *disco
 func (m *Module) showTodoHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, _ *discordgo.ApplicationCommandInteractionDataOption) {
 	channelID := i.ChannelID
 
-	entries, err := m.todoRepository.GetEntries(ctx, channelID)
+	list, err := m.todoRepository.GetEntries(ctx, channelID)
 	if err != nil {
 		metrics.CountServerErroredCommand(LabelTodoShow)
 		m.logger.WithError(err).Error("cannot get Todo list")
@@ -128,7 +128,7 @@ func (m *Module) showTodoHandler(ctx context.Context, s *discordgo.Session, i *d
 	builder := strings.Builder{}
 	builder.WriteString("📰 **Tasks:**\n")
 
-	for i, entry := range entries {
+	for i, entry := range list.Entries {
 		builder.WriteString(fmt.Sprintf("%d. %s\n", i+1, entry.Text))
 	}
 
@@ -156,7 +156,7 @@ func (m *Module) addTodoHandler(ctx context.Context, s *discordgo.Session, i *di
 }
 
 func (m *Module) todoDoneCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, _ *discordgo.ApplicationCommandInteractionDataOption) {
-	entries, err := m.todoRepository.GetEntries(ctx, i.ChannelID)
+	list, err := m.todoRepository.GetEntries(ctx, i.ChannelID)
 	if err != nil {
 		metrics.CountServerErroredCommand(LabelTodoDone)
 
@@ -165,13 +165,13 @@ func (m *Module) todoDoneCommandHandler(ctx context.Context, s *discordgo.Sessio
 		return
 	}
 
-	if len(entries) == 0 {
+	if len(list.Entries) == 0 {
 		common.StringResponseHandler(m.logger, s, i, "**There are no tasks!**")
 		return
 	}
 
 	var options []discordgo.SelectMenuOption
-	for _, entry := range entries {
+	for _, entry := range list.Entries {
 		label := entry.Text
 		description := ""
 

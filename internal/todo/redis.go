@@ -61,23 +61,27 @@ func (store *RedisTodoStore) ListEntries(ctx context.Context, channelID string) 
 	return allIDs, nil
 }
 
-func (store *RedisTodoStore) GetEntries(ctx context.Context, channelID string) (List, error) {
+func (store *RedisTodoStore) GetEntries(ctx context.Context, channelID string) (*List, error) {
 	IDs, err := store.ListEntries(ctx, channelID)
 	if err != nil {
 		return nil, errors.Wrap(err, "while listing entry IDs")
 	}
 
-	var entries []*Entry
+	list := &List{
+		ChannelID: channelID,
+		Entries:   make([]*Entry, 0),
+	}
+
 	for _, entryID := range IDs {
 		entry, err := store.GetEntry(ctx, channelID, entryID)
 		if err != nil {
 			return nil, errors.Wrapf(err, "while getting entry %s", entryID)
 		}
 
-		entries = append(entries, entry)
+		list.Entries = append(list.Entries, entry)
 	}
 
-	return entries, nil
+	return list, nil
 }
 
 func (store *RedisTodoStore) AddEntry(ctx context.Context, channelID string, entry *Entry) (string, error) {

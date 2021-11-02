@@ -54,8 +54,9 @@ var (
 	ds  *discordgo.Session
 	cfg Config
 
-	reminderCheckInterval = 30 * time.Second
-	requestTimeout        = 10 * time.Second
+	reminderCheckInterval     = 30 * time.Second
+	todoNotifierCheckInterval = 60 * time.Second
+	requestTimeout            = 10 * time.Second
 
 	rdb           *redis.Client
 	reminderStore *reminder.RedisReminderStore
@@ -115,9 +116,9 @@ func getReminderService() *reminder.Service {
 	return reminder.NewService(sender, reminderStore)
 }
 
-func getTodoService() (*todo.Service, error) {
+func getTodoService() (*todo.Notifier, error) {
 	sender := message.NewSender(ds)
-	svc, err := todo.NewService(&todo.ServiceConfig{
+	svc, err := todo.NewNotifier(&todo.NotifierConfig{
 		Pusher:        sender,
 		Store:         todoStore,
 		TimezoneStore: configStore,
@@ -232,20 +233,24 @@ func main() {
 		log.WithError(err).Fatal("failed to get TodoService")
 	}
 
+	reminderTicker := time.Tick(reminderCheckInterval)
+	todoNotifierTicket := time.Tick(todoNotifierCheckInterval)
+
 	for {
 		select {
 		case <-sc:
 			log.Infof("shutting down application")
 			return
 
-		case <-time.Tick(reminderCheckInterval):
+		case <-reminderTicker:
 			if err := reminderSvc.Run(ctx); err != nil {
-				log.WithError(err).Error("failed to run ReminderService")
+				log.WithError(err).Error("failed to run reminder.Service")
 			}
+
+		case <-todoNotifierTicket:
 			if err := todoSvc.Run(ctx); err != nil {
-				log.WithError(err).Error("failed to run TodoService")
+				log.WithError(err).Error("failed to run todo.Notifier")
 			}
-			break
 		}
 	}
 }

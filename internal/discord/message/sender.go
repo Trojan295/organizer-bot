@@ -35,15 +35,15 @@ func (send *Sender) PushReminder(ctx context.Context, rem *reminder.Reminder) er
 	return nil
 }
 
-func (send *Sender) PushTodoListNotification(ctx context.Context, channelID string, list todo.List) error {
+func (send *Sender) PushTodoListNotification(ctx context.Context, list *todo.List) error {
 	builder := strings.Builder{}
-	builder.WriteString(fmt.Sprintf("📰 **Tasks:** <#%s>\n", channelID))
+	builder.WriteString(fmt.Sprintf("📰 **Tasks:** <#%s>\n", list.ChannelID))
 
-	for i, entry := range list {
+	for i, entry := range list.Entries {
 		builder.WriteString(fmt.Sprintf("%d. %s\n", i+1, entry.Text))
 	}
 
-	_, err := send.session.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+	_, err := send.session.ChannelMessageSendComplex(list.ChannelID, &discordgo.MessageSend{
 		Content: builder.String(),
 	})
 	if err != nil {

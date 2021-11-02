@@ -6,4 +6,7 @@ type Entry struct {
 	// TODO add updatedAt
 }
 
-type List []*Entry
+type List struct {
+	ChannelID string
+	Entries   []*Entry
+}

@@ -5,31 +5,53 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Trojan295/organizer-bot/internal/organizer"
 	log "github.com/sirupsen/logrus"
 )
 
 type Pusher interface {
-	PushTodoListNotification(ctx context.Context, ID string, list List) error
+	PushTodoListNotification(ctx context.Context, list *List) error
 }
 
-type Service struct {
+type Store interface {
+	GetAllChannelsWithTodo(ctx context.Context) ([]string, error)
+	GetEntries(ctx context.Context, channelID string) (*List, error)
+	GetLastTodoNotificationTimestamp(ctx context.Context, channelID string) (int64, error)
+	SetLastTodoNotificationTimestamp(ctx context.Context, channelID string, timestamp int64) error
+}
+
+type TimezoneStore interface {
+	GetCurrentTimezone(ctx context.Context, channelID string) (*time.Location, error)
+}
+
+type Clock interface {
+	Now() time.Time
+}
+
+type Notifier struct {
 	pusher        Pusher
-	store         *RedisTodoStore
-	timezoneStore *organizer.RedisConfigStore
+	store         Store
+	timezoneStore TimezoneStore
+	clock         Clock
 
 	logger *log.Entry
 }
 
-type ServiceConfig struct {
+type NotifierConfig struct {
 	Pusher        Pusher
-	Store         *RedisTodoStore
-	TimezoneStore *organizer.RedisConfigStore
+	Store         Store
+	TimezoneStore TimezoneStore
+	Clock         Clock
 }
 
-func NewService(cfg *ServiceConfig) (*Service, error) {
+type RealClock struct{}
+
+func (*RealClock) Now() time.Time {
+	return time.Now()
+}
+
+func NewNotifier(cfg *NotifierConfig) (*Notifier, error) {
 	if cfg == nil {
-		cfg = &ServiceConfig{}
+		cfg = &NotifierConfig{}
 	}
 
 	if cfg.Pusher == nil {
@@ -44,21 +66,27 @@ func NewService(cfg *ServiceConfig) (*Service, error) {
 		return nil, fmt.Errorf("TimezoneStore is not set")
 	}
 
-	return &Service{
+	if cfg.Clock == nil {
+		cfg.Clock = &RealClock{}
+	}
+
+	return &Notifier{
 		pusher:        cfg.Pusher,
 		store:         cfg.Store,
 		timezoneStore: cfg.TimezoneStore,
+		clock:         cfg.Clock,
 		logger:        log.NewEntry(log.New()).WithField("struct", "todo.Service"),
 	}, nil
 }
 
-func (service *Service) Run(ctx context.Context) error {
+// TODO: write some tests
+func (service *Notifier) Run(ctx context.Context) error {
 	channelIDs, err := service.store.GetAllChannelsWithTodo(ctx)
 	if err != nil {
 		return fmt.Errorf("while gettings all channels: %w", err)
 	}
 
-	now := time.Now()
+	now := service.clock.Now()
 
 	for _, ID := range channelIDs {
 		timezone, err := service.timezoneStore.GetCurrentTimezone(ctx, ID)
@@ -84,7 +112,7 @@ func (service *Service) Run(ctx context.Context) error {
 				continue
 			}
 
-			if err := service.pusher.PushTodoListNotification(ctx, ID, list); err != nil {
+			if err := service.pusher.PushTodoListNotification(ctx, list); err != nil {
 				service.logger.WithError(err).WithField("channelID", ID).Error("failed to push todo list")
 				continue
 			}
