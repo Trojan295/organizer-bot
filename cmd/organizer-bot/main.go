@@ -54,11 +54,13 @@ var (
 	ds  *discordgo.Session
 	cfg Config
 
-	reminderCheckInterval = 30 * time.Second
-	requestTimeout        = 10 * time.Second
+	reminderCheckInterval     = 30 * time.Second
+	todoNotifierCheckInterval = 60 * time.Second
+	requestTimeout            = 10 * time.Second
 
 	rdb           *redis.Client
 	reminderStore *reminder.RedisReminderStore
+	todoStore     *todo.RedisTodoStore
 	configStore   *organizer.RedisConfigStore
 )
 
@@ -80,7 +82,7 @@ func getRootModule() (*root.Module, error) {
 
 	configStore = organizer.NewRedisConfigStore(rdb)
 	reminderStore = reminder.NewRedisReminderStore(rdb)
-	todoStore := todo.NewRedisTodoStore(rdb)
+	todoStore = todo.NewRedisTodoStore(rdb)
 
 	todoModule, err := discordtodo.NewTodoModule(&discordtodo.ModuleConfig{
 		TodoRepo: todoStore,
@@ -112,6 +114,20 @@ func getRootModule() (*root.Module, error) {
 func getReminderService() *reminder.Service {
 	sender := message.NewSender(ds)
 	return reminder.NewService(sender, reminderStore)
+}
+
+func getTodoService() (*todo.Notifier, error) {
+	sender := message.NewSender(ds)
+	svc, err := todo.NewNotifier(&todo.NotifierConfig{
+		Pusher:        sender,
+		Store:         todoStore,
+		TimezoneStore: configStore,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return svc, nil
 }
 
 func setupCommandHandlers(s *discordgo.Session, rootModule *root.Module) {
@@ -212,6 +228,13 @@ func main() {
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
 	reminderSvc := getReminderService()
+	todoSvc, err := getTodoService()
+	if err != nil {
+		log.WithError(err).Fatal("failed to get TodoService")
+	}
+
+	reminderTicker := time.Tick(reminderCheckInterval)
+	todoNotifierTicket := time.Tick(todoNotifierCheckInterval)
 
 	for {
 		select {
@@ -219,11 +242,15 @@ func main() {
 			log.Infof("shutting down application")
 			return
 
-		case <-time.Tick(reminderCheckInterval):
+		case <-reminderTicker:
 			if err := reminderSvc.Run(ctx); err != nil {
-				log.WithError(err).Error("failed to run ReminderService")
+				log.WithError(err).Error("failed to run reminder.Service")
 			}
-			break
+
+		case <-todoNotifierTicket:
+			if err := todoSvc.Run(ctx); err != nil {
+				log.WithError(err).Error("failed to run todo.Notifier")
+			}
 		}
 	}
 }
