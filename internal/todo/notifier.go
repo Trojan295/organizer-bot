@@ -95,6 +95,10 @@ func (service *Notifier) Run(ctx context.Context) error {
 			continue
 		}
 
+		if timezone == nil {
+			timezone = time.UTC
+		}
+
 		lastNotification, err := service.store.GetLastTodoNotificationTimestamp(ctx, ID)
 		if err != nil {
 			service.logger.WithError(err).WithField("channelID", ID).Error("failed to get last notification timestamp")

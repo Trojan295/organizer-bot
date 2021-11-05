@@ -114,6 +114,12 @@ func TestNotifier_Run(t *testing.T) {
 			timeZone:                  RequireLocation("America/Chicago"),
 			notified:                  true,
 		},
+		"MissingTimezone_AssumeUTC": {
+			currentTimestamp:          time.Date(2021, 11, 2, 8, 37, 0, 0, time.UTC),
+			lastNotificationTimestamp: DatePtr(time.Date(2021, 11, 1, 9, 37, 0, 0, time.UTC)).Unix(),
+			timeZone:                  nil,
+			notified:                  false,
+		},
 	}
 
 	for name, test := range tt {
