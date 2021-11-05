@@ -24,6 +24,8 @@ func ScanKeys(ctx context.Context, cli *redis.Client, keyPattern string) ([]stri
 		if cursor == 0 {
 			break
 		}
+
+		currentCursor = cursor
 	}
 
 	return allKeys, nil
