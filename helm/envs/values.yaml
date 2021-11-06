@@ -55,12 +55,12 @@ redis:
     serviceMonitor:
       enabled: true
       additionalLabels:
-        release: monitoring-stack
+        release: kube-prometheus-stack
 
     prometheusRule:
       enabled: true
       additionalLabels:
-        release: monitoring-stack
+        release: kube-prometheus-stack
         app: kube-prometheus-stack
 
       rules:
