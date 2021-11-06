@@ -3,7 +3,7 @@ kind: ServiceMonitor
 metadata:
   name: {{ include "organizer-bot.fullname" . }}-bot
   labels:
-    release: monitoring-stack
+    release: kube-prometheus-stack
     {{- include "organizer-bot.labels" . | nindent 4 }}
 spec:
   selector:
