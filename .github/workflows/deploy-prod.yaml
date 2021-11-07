@@ -22,17 +22,17 @@ jobs:
         run: |
           ./hack/docker.sh push
 
-  release-helm-chart:
-    name: Push Helm chart
-    runs-on: ubuntu-latest
-    env:
-      CHARTMUSEUM_AUTH_USER: ${{ secrets.CHARTMUSEUM_AUTH_USER }}
-      CHARTMUSEUM_AUTH_PASS: ${{ secrets.CHARTMUSEUM_AUTH_PASS }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - run: |
-          ./hack/release-helm-chart.sh
+  #release-helm-chart:
+  #  name: Push Helm chart
+  #  runs-on: ubuntu-latest
+  #  env:
+  #    CHARTMUSEUM_AUTH_USER: ${{ secrets.CHARTMUSEUM_AUTH_USER }}
+  #    CHARTMUSEUM_AUTH_PASS: ${{ secrets.CHARTMUSEUM_AUTH_PASS }}
+  #  steps:
+  #    - name: Checkout code
+  #      uses: actions/checkout@v2
+  #    - run: |
+  #        ./hack/release-helm-chart.sh
 
   deploy-bot :
     name: Deploy bot
