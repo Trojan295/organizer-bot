@@ -115,7 +115,9 @@ func (module *ConfigModule) getTimezoneHandler(ctx context.Context, s *discordgo
 	metrics.CountExecutedCommand(LabelConfigTimezoneGet)
 
 	if tz == nil {
-		StringResponseHandler(module.logger, s, i, "🕑 Timezone is not set!")
+		StringResponseHandler(module.logger, s, i, `🕑 Timezone is not set!
+Check this page to see, how to set a time zone:
+https://github.com/Trojan295/organizer-bot/blob/main/docs/timezones.md`)
 		return
 	}
 
@@ -130,9 +132,9 @@ func (module *ConfigModule) setTimezoneHandler(ctx context.Context, s *discordgo
 	if err != nil {
 		metrics.CountClientErroredCommand(LabelConfigTimezoneSet)
 		ClientErrorCommandHandler(module.logger, s, i, `Incorrect timezone name!
-Example names are: **Europe/Berlin**, **UTC** or **EST**.
-You can find a list of timezone names here:
-https://en.wikipedia.org/wiki/List_of_tz_database_time_zones`)
+Example names are: **Europe/Berlin**, **America/Santiago** **UTC**.
+You can find all supported time zones here:
+https://github.com/Trojan295/organizer-bot/blob/main/docs/timezones.md`)
 		return
 	}
 
