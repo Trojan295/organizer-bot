@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Set Docker image tag
+        run: echo "DOCKER_TAG=$(git describe HEAD --tags)" >> $GITHUB_ENV
       - name: Build image
         run: |
           ./hack/docker.sh build
