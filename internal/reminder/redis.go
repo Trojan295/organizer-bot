@@ -114,6 +114,8 @@ func (store *RedisReminderStore) ListReminders(ctx context.Context, channelID st
 		if cursor == 0 {
 			break
 		}
+
+		currentCursor = cursor
 	}
 
 	return allIDs, nil
